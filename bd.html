@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de replicacion multinivel</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <!-- Partículas de fondo -->
+    <div class="particle"></div>
+    <div class="particle"></div>
+    <div class="particle"></div>
+    <div class="particle"></div>
+    <div class="particle"></div>
+    <div class="particle"></div>
+    <div class="particle"></div>
+    class="particle"></div>
+    <div class="particle"></div>
+
+    <div class="network-container">
+            <div class="network-info">
+                <h3>Simulación de Red</h3>
+                <p>Sistema de replicacion multinivel</p>
+            </div>
+            <div class="nivel0-row">
+                <div class="endpoint endpoint-1 source">
+                    <img src="assets/matrizbase.png" alt="MTX001" style="width: 80px; height: 80px; filter: brightness(0) invert(1);">
+                    <div class="db-label">
+                        <strong>MTX001</strong><br>
+                        172.16.0.10
+                    </div>
+                </div>
+                <div class="endpoint endpoint-2 destination">
+                    <img src="assets/matrizbase.png" alt="MTX001R" style="width: 80px; height: 80px; filter: brightness(0) invert(1);">
+                    <div class="db-label">
+                        <strong>MTX001R</strong><br>
+                        172.16.0.11
+                    </div>
+                </div>
+                <div class="endpoint endpoint-3 destination">
+                    <img src="assets/matrizbase.png" alt="BAK001" style="width: 80px; height: 80px; filter: brightness(0) invert(1);">
+                    <div class="db-label">
+                        <strong>BAK001</strong><br>
+                        172.16.0.12
+                    </div>
+                </div>
+            </div>
+            <!-- Nivel 1: Bases de datos debajo de MTX001 -->
+            <div class="level-1">
+                <div class="endpoint endpoint-rep1">
+                    <img src="assets/matrizbase.png" alt="REP001" style="width: 60px; height: 60px; filter: brightness(0) invert(1);">
+                    <div class="db-label">
+                        <strong>REP001</strong><br>
+                        172.16.1.10
+                    </div>
+                </div>
+                <div class="endpoint endpoint-rep2">
+                    <img src="assets/matrizbase.png" alt="REP002" style="width: 60px; height: 60px; filter: brightness(0) invert(1);">
+                    <div class="db-label">
+                        <strong>REP002</strong><br>
+                        172.16.1.11
+                    </div>
+                </div>
+                <div class="endpoint endpoint-rep3">
+                    <img src="assets/matrizbase.png" alt="REP003" style="width: 60px; height: 60px; filter: brightness(0) invert(1);">
+                    <div class="db-label">
+                        <strong>REP003</strong><br>
+                        172.16.1.12
+                    </div>
+                </div>
+            </div>
+            <!-- Líneas y animaciones nivel 1 -->
+            <div class="line-mtx-rep" id="line-rep1"></div>
+            <div class="line-mtx-rep" id="line-rep2"></div>
+            <div class="line-mtx-rep" id="line-rep3"></div>
+            <div class="packet-mtx-rep" id="packet-rep1"></div>
+            <div class="packet-mtx-rep" id="packet-rep2"></div>
+            <div class="packet-mtx-rep" id="packet-rep3"></div>
+            <!-- Líneas y animaciones nivel 0 (entre las 3 bases principales) -->
+            <div class="line-mtx-rep" id="line-0-1"></div>
+            <div class="line-mtx-rep" id="line-1-2"></div>
+            <div class="line-mtx-rep" id="line-2-0"></div>
+            <div class="packet-mtx-rep" id="packet-0-1"></div>
+            <div class="packet-mtx-rep" id="packet-1-0"></div>
+            <div class="packet-mtx-rep" id="packet-1-2"></div>
+            <div class="packet-mtx-rep" id="packet-2-1"></div>
+            <div class="packet-mtx-rep" id="packet-2-0"></div>
+            <div class="packet-mtx-rep" id="packet-0-2"></div>
+        </div>
+        <script>
+        // Centrar y conectar líneas y animaciones
+        function connectLinesAndPackets() {
+            function getCenter(el) {
+                const rect = el.getBoundingClientRect();
+                return {
+                    x: rect.left + rect.width / 2,
+                    y: rect.top + rect.height / 2
+                };
+            }
+            // Nivel 0 endpoints
+            const mtx = document.querySelector('.endpoint-1');
+            const mtxr = document.querySelector('.endpoint-2');
+            const bak = document.querySelector('.endpoint-3');
+            // Nivel 1 endpoints
+            const rep1 = document.querySelector('.endpoint-rep1');
+            const rep2 = document.querySelector('.endpoint-rep2');
+            const rep3 = document.querySelector('.endpoint-rep3');
+            // Nivel 1 líneas y paquetes
+            const line1 = document.getElementById('line-rep1');
+            const line2 = document.getElementById('line-rep2');
+            const line3 = document.getElementById('line-rep3');
+            const packet1 = document.getElementById('packet-rep1');
+            const packet2 = document.getElementById('packet-rep2');
+            const packet3 = document.getElementById('packet-rep3');
+            // Nivel 0 líneas y paquetes (entre las 3 bases principales)
+            const line01 = document.getElementById('line-0-1');
+            const line12 = document.getElementById('line-1-2');
+            const line20 = document.getElementById('line-2-0');
+            const packet01 = document.getElementById('packet-0-1');
+            const packet10 = document.getElementById('packet-1-0');
+            const packet12 = document.getElementById('packet-1-2');
+            const packet21 = document.getElementById('packet-2-1');
+            const packet20 = document.getElementById('packet-2-0');
+            const packet02 = document.getElementById('packet-0-2');
+            // Calcula posiciones relativas dentro del container
+            function setLineAndPacket(line, packet, from, to, duration = 2000, delay = 0) {
+                const fromRect = from.getBoundingClientRect();
+                const toRect = to.getBoundingClientRect();
+                const containerRect = from.parentElement.parentElement.getBoundingClientRect();
+                // Si es conexión nivel 1 (de nivel 0 a nivel 1), conecta desde borde inferior a borde superior
+                let x1, y1, x2, y2;
+                if (from.classList.contains('endpoint-1') && (to.classList.contains('endpoint-rep1') || to.classList.contains('endpoint-rep2') || to.classList.contains('endpoint-rep3'))) {
+                    x1 = fromRect.left + fromRect.width / 2 - containerRect.left;
+                    y1 = fromRect.bottom - containerRect.top;
+                    x2 = toRect.left + toRect.width / 2 - containerRect.left;
+                    y2 = toRect.top - containerRect.top;
+                } else {
+                    // Para conexiones entre nivel 0, centro a centro
+                    x1 = fromRect.left + fromRect.width / 2 - containerRect.left;
+                    y1 = fromRect.top + fromRect.height / 2 - containerRect.top;
+                    x2 = toRect.left + toRect.width / 2 - containerRect.left;
+                    y2 = toRect.top + toRect.height / 2 - containerRect.top;
+                }
+                // Línea
+                const dx = x2 - x1;
+                const dy = y2 - y1;
+                const length = Math.sqrt(dx*dx + dy*dy);
+                const angle = Math.atan2(dy, dx) * 180 / Math.PI;
+                line.style.left = x1 + 'px';
+                line.style.top = y1 + 'px';
+                line.style.height = '2px';
+                line.style.width = length + 'px';
+                line.style.transform = `rotate(${angle}deg)`;
+                // Animación del paquete
+                packet.style.left = x1 + 'px';
+                packet.style.top = y1 + 'px';
+                packet.style.opacity = 1;
+                packet.animate([
+                    { left: x1 + 'px', top: y1 + 'px', opacity: 0 },
+                    { left: x2 + 'px', top: y2 + 'px', opacity: 1 },
+                    { left: x2 + 'px', top: y2 + 'px', opacity: 0 }
+                ], {
+                    duration: duration,
+                    iterations: Infinity,
+                    delay: delay
+                });
+            }
+            // Nivel 1 (de MTX001 a los 3 REP)
+            setLineAndPacket(line1, packet1, mtx, rep1);
+            setLineAndPacket(line2, packet2, mtx, rep2);
+            setLineAndPacket(line3, packet3, mtx, rep3);
+            // Nivel 0 (entre las 3 bases principales)
+            // Bidireccional entre MTX001 y MTX001R
+            setLineAndPacket(line01, packet01, mtx, mtxr, 1800, 0); // MTX001 -> MTX001R
+            setLineAndPacket(line01, packet10, mtxr, mtx, 1800, 900); // MTX001R -> MTX001
+            // Bidireccional entre MTX001R y BAK001
+            setLineAndPacket(line12, packet12, mtxr, bak, 1800, 0); // MTX001R -> BAK001
+            setLineAndPacket(line12, packet21, bak, mtxr, 1800, 900); // BAK001 -> MTX001R
+            // Direccional entre BAK001 y MTX001
+            setLineAndPacket(line20, packet20, bak, mtx, 2200, 0); // BAK001 -> MTX001
+            setLineAndPacket(line20, packet02, mtx, bak, 2200, 1100); // MTX001 -> BAK001
+        }
+        window.addEventListener('DOMContentLoaded', connectLinesAndPackets);
+        window.addEventListener('resize', connectLinesAndPackets);
+        </script>
+</body>
+</html>

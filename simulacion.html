@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulación de Red con D3.js</title>
+    <style>
+        body {
+            background: linear-gradient(135deg, #1e3c72, #2a5298);
+            font-family: 'Arial', sans-serif;
+            margin: 0;
+            padding: 0;
+        }
+        .network-container {
+            width: 1300px;
+            height: 950px;
+            margin: 40px auto;
+            background: rgba(20, 20, 30, 0.85);
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.7);
+            position: relative;
+            overflow: visible;
+        }
+        .network-title {
+            text-align: center;
+            color: #fff;
+            padding: 30px 0 10px 0;
+            font-size: 2.2rem;
+        }
+        .network-subtitle {
+            text-align: center;
+            color: #b0b8c9;
+            font-size: 1.1rem;
+            margin-bottom: 20px;
+        }
+        svg {
+            width: 100%;
+            height: 100%;
+        }
+        .node-label {
+            font-size: 13px;
+            fill: #e0e6f0;
+            text-anchor: middle;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="network-container">
+        <div class="network-title">Simulación de Red</div>
+        <div class="network-subtitle">Sistema de replicación multinivel (D3.js)</div>
+        <div style="text-align:center; margin-bottom:10px;">
+            <button id="btn-simular-base-local" style="padding:8px 18px; font-size:1rem; border-radius:8px; background:#4ecdc4; color:#222; border:none; font-weight:bold; cursor:pointer; margin-bottom:10px;">Simular ruta base local</button>
+            <button id="btn-simular-transaccional" style="padding:8px 18px; font-size:1rem; border-radius:8px; background:#ffe082; color:#222; border:none; font-weight:bold; cursor:pointer; margin-left:10px; margin-bottom:10px;">Simular ruta transaccional</button>
+        </div>
+        <svg id="network-svg"></svg>
+    </div>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script>
+    // --- Simulación de ruta transaccional ---
+    document.getElementById('btn-simular-transaccional').onclick = function() {
+        stopContinuousAnimation();
+        this.disabled = true;
+        this.style.opacity = 0.6;
+        document.getElementById('btn-simular-base-local').disabled = true;
+        document.getElementById('btn-simular-base-local').style.opacity = 0.6;
+        // MTX001 -> TRX001, TRX002, TRX003
+        const trx = ['TRX001','TRX002','TRX003'];
+        const tiendas = ['TMM001','TGQ001','TQT101','TCU101','TAM101','TMM002'];
+        const ruta = [];
+        trx.forEach(t => ruta.push(['MTX001', t]));
+        // Cada TRX a todas las tiendas
+        trx.forEach(t => {
+            tiendas.forEach(tienda => ruta.push([t, tienda]));
+        });
+        let i = 0;
+        function next() {
+            if (i >= ruta.length) {
+                document.getElementById('btn-simular-transaccional').disabled = false;
+                document.getElementById('btn-simular-transaccional').style.opacity = 1;
+                document.getElementById('btn-simular-base-local').disabled = false;
+                document.getElementById('btn-simular-base-local').style.opacity = 1;
+                setTimeout(startContinuousAnimation, 400);
+                return;
+            }
+            const [fromId, toId] = ruta[i];
+            animatePacket(positions[fromId], positions[toId], 900, '#ffe082', true, () => {
+                setTimeout(next, 200);
+            });
+            i++;
+        }
+        next();
+    };
+    // Datos de nodos y conexiones
+    const nodes = [
+        { id: 'MTX001', ip: '172.16.0.10', level: 0, color: '#ff6b6b' },
+        { id: 'MTX001R', ip: '172.16.0.11', level: 0, color: '#4ecdc4' },
+        { id: 'BAK001', ip: '172.16.0.12', level: 0, color: '#4ecdc4' },
+        { id: 'REP001', ip: '172.16.1.10', level: 1, color: '#fff' },
+        { id: 'REP002', ip: '172.16.1.11', level: 1, color: '#fff' },
+        { id: 'REP003', ip: '172.16.1.12', level: 1, color: '#fff' },
+        // Nodos transaccionales (nivel 1, mismo nivel que REP)
+        { id: 'TRX001', ip: '172.16.2.10', level: 1, color: '#ffe082' },
+        { id: 'TRX002', ip: '172.16.2.11', level: 1, color: '#ffe082' },
+        { id: 'TRX003', ip: '172.16.2.12', level: 1, color: '#ffe082' },
+        // Bases locales (nivel 2)
+        { id: 'MM001', ip: '172.16.10.10', level: 2, color: '#b3e5fc' },
+        { id: 'GQ001', ip: '172.16.11.10', level: 2, color: '#b3e5fc' },
+        { id: 'QT101', ip: '172.16.12.10', level: 2, color: '#b3e5fc' },
+        { id: 'CU101', ip: '172.16.13.10', level: 2, color: '#b3e5fc' },
+        { id: 'AM101', ip: '172.16.14.10', level: 2, color: '#b3e5fc' },
+        { id: 'MM002', ip: '10.2.1.10', level: 2, color: '#b3e5fc' }
+        // Tiendas (nivel 3)
+        ,{ id: 'TMM001', ip: '10.3.1.10', level: 3, color: '#ffccbc' }
+        ,{ id: 'TGQ001', ip: '10.3.2.10', level: 3, color: '#ffccbc' }
+        ,{ id: 'TQT101', ip: '10.3.3.10', level: 3, color: '#ffccbc' }
+        ,{ id: 'TCU101', ip: '10.3.4.10', level: 3, color: '#ffccbc' }
+        ,{ id: 'TAM101', ip: '10.3.5.10', level: 3, color: '#ffccbc' }
+        ,{ id: 'TMM002', ip: '10.3.6.10', level: 3, color: '#ffccbc' }
+    ];
+    const links = [
+        // Nivel 0 conexiones bidireccionales y direccionales
+        { source: 'MTX001', target: 'MTX001R', bidirectional: true },
+        { source: 'MTX001R', target: 'BAK001', bidirectional: true },
+        { source: 'BAK001', target: 'MTX001', bidirectional: false },
+        // Nivel 1 conexiones
+        { source: 'MTX001', target: 'REP001', bidirectional: false },
+        { source: 'MTX001', target: 'REP002', bidirectional: false },
+        { source: 'MTX001', target: 'REP003', bidirectional: false },
+        { source: 'MTX001', target: 'TRX001', bidirectional: false },
+        { source: 'MTX001', target: 'TRX002', bidirectional: false },
+        { source: 'MTX001', target: 'TRX003', bidirectional: false }
+        // Nivel 2 conexiones (REP -> Bases locales, uno a muchos)
+        ,{ source: 'REP001', target: 'MM001', bidirectional: false }
+        ,{ source: 'REP001', target: 'GQ001', bidirectional: false }
+        ,{ source: 'REP001', target: 'QT101', bidirectional: false }
+        ,{ source: 'REP001', target: 'CU101', bidirectional: false }
+        ,{ source: 'REP001', target: 'AM101', bidirectional: false }
+        ,{ source: 'REP001', target: 'MM002', bidirectional: false }
+        ,{ source: 'REP002', target: 'MM001', bidirectional: false }
+        ,{ source: 'REP002', target: 'GQ001', bidirectional: false }
+        ,{ source: 'REP002', target: 'QT101', bidirectional: false }
+        ,{ source: 'REP002', target: 'CU101', bidirectional: false }
+        ,{ source: 'REP002', target: 'AM101', bidirectional: false }
+        ,{ source: 'REP002', target: 'MM002', bidirectional: false }
+        ,{ source: 'REP003', target: 'MM001', bidirectional: false }
+        ,{ source: 'REP003', target: 'GQ001', bidirectional: false }
+        ,{ source: 'REP003', target: 'QT101', bidirectional: false }
+        ,{ source: 'REP003', target: 'CU101', bidirectional: false }
+        ,{ source: 'REP003', target: 'AM101', bidirectional: false }
+        ,{ source: 'REP003', target: 'MM002', bidirectional: false }
+        // Nivel 3 conexiones (Bases locales -> Tiendas, uno a uno)
+        ,{ source: 'MM001', target: 'TMM001', bidirectional: false }
+        ,{ source: 'GQ001', target: 'TGQ001', bidirectional: false }
+        ,{ source: 'QT101', target: 'TQT101', bidirectional: false }
+        ,{ source: 'CU101', target: 'TCU101', bidirectional: false }
+        ,{ source: 'AM101', target: 'TAM101', bidirectional: false }
+        ,{ source: 'MM002', target: 'TMM002', bidirectional: false }
+        // Nivel 3 conexiones (Transaccionales -> Tiendas, uno a muchos)
+        ,{ source: 'TRX001', target: 'TMM001', bidirectional: false }
+        ,{ source: 'TRX001', target: 'TGQ001', bidirectional: false }
+        ,{ source: 'TRX001', target: 'TQT101', bidirectional: false }
+        ,{ source: 'TRX001', target: 'TCU101', bidirectional: false }
+        ,{ source: 'TRX001', target: 'TAM101', bidirectional: false }
+        ,{ source: 'TRX001', target: 'TMM002', bidirectional: false }
+        ,{ source: 'TRX002', target: 'TMM001', bidirectional: false }
+        ,{ source: 'TRX002', target: 'TGQ001', bidirectional: false }
+        ,{ source: 'TRX002', target: 'TQT101', bidirectional: false }
+        ,{ source: 'TRX002', target: 'TCU101', bidirectional: false }
+        ,{ source: 'TRX002', target: 'TAM101', bidirectional: false }
+        ,{ source: 'TRX002', target: 'TMM002', bidirectional: false }
+        ,{ source: 'TRX003', target: 'TMM001', bidirectional: false }
+        ,{ source: 'TRX003', target: 'TGQ001', bidirectional: false }
+        ,{ source: 'TRX003', target: 'TQT101', bidirectional: false }
+        ,{ source: 'TRX003', target: 'TCU101', bidirectional: false }
+        ,{ source: 'TRX003', target: 'TAM101', bidirectional: false }
+        ,{ source: 'TRX003', target: 'TMM002', bidirectional: false }
+    ];
+    // Posiciones manuales para orden piramidal
+    const positions = {
+        'MTX001':  { x: 350, y: 100 },
+        'MTX001R': { x: 650, y: 100 },
+        'BAK001':  { x: 950, y: 100 },
+        'REP001':  { x: 200, y: 300 },
+        'REP002':  { x: 450, y: 300 },
+        'REP003':  { x: 700, y: 300 },
+        'TRX001':  { x: 950, y: 300 },
+        'TRX002':  { x: 1100, y: 300 },
+        'TRX003':  { x: 1250, y: 300 },
+        // Bases locales (nivel 2)
+        'MM001':  { x: 150, y: 500 },
+        'GQ001':  { x: 350, y: 500 },
+        'QT101':  { x: 550, y: 500 },
+        'CU101':  { x: 750, y: 500 },
+        'AM101':  { x: 950, y: 500 },
+        'MM002':  { x: 1150, y: 500 }
+        // Tiendas (nivel 3)
+        ,'TMM001': { x: 150, y: 670 }
+        ,'TGQ001': { x: 350, y: 670 }
+        ,'TQT101': { x: 550, y: 670 }
+        ,'TCU101': { x: 750, y: 670 }
+        ,'TAM101': { x: 950, y: 670 }
+        ,'TMM002': { x: 1150, y: 670 }
+    };
+    const svg = d3.select('#network-svg')
+        .attr('width', 1300)
+        .attr('height', 1000);
+
+    // Etiquetas de niveles
+    svg.append('text')
+        .attr('x', 60)
+        .attr('y', 110)
+        .attr('fill', '#e0e6f0')
+        .attr('font-size', 17)
+        .attr('font-weight', 'bold')
+        .text('Nivel 0');
+    svg.append('text')
+        .attr('x', 60)
+        .attr('y', 310)
+        .attr('fill', '#e0e6f0')
+        .attr('font-size', 17)
+        .attr('font-weight', 'bold')
+        .text('Nivel 1');
+    svg.append('text')
+        .attr('x', 60)
+        .attr('y', 510)
+        .attr('fill', '#e0e6f0')
+        .attr('font-size', 17)
+        .attr('font-weight', 'bold')
+        .text('Nivel 2');
+    svg.append('text')
+        .attr('x', 60)
+        .attr('y', 680)
+        .attr('fill', '#e0e6f0')
+        .attr('font-size', 17)
+        .attr('font-weight', 'bold')
+        .text('Nivel 3');
+    // Dibujar líneas
+links.forEach(link => {
+    const from = positions[link.source];
+    const to = positions[link.target];
+    let strokeColor = '#ccc';
+    let strokeWidth = 2;
+    // Diferenciación de colores por tipo de nodo origen
+    if (link.source.startsWith('REP')) {
+        strokeColor = '#90caf9'; // azul suave
+        strokeWidth = 2.5;
+    } else if (['MTX001','MTX001R','BAK001'].includes(link.source)) {
+        strokeColor = '#bdbdbd'; // gris neutro
+        strokeWidth = 2.5;
+    } else if (link.source.startsWith('TRX')) {
+        strokeColor = '#ffe082'; // amarillo suave
+        strokeWidth = 2.5;
+    } else if (link.source.startsWith('MM') || link.source.startsWith('GQ') || link.source.startsWith('QT') || link.source.startsWith('CU') || link.source.startsWith('AM')) {
+        strokeColor = '#e0e0e0'; // gris claro para uno a uno
+        strokeWidth = 2;
+    }
+    svg.append('line')
+        .attr('x1', from.x)
+        .attr('y1', from.y)
+        .attr('x2', to.x)
+        .attr('y2', to.y)
+        .attr('stroke', strokeColor)
+        .attr('stroke-width', strokeWidth)
+        .attr('opacity', 0.6);
+});
+    // Dibujar nodos
+    nodes.forEach(node => {
+        // Círculo de fondo
+        svg.append('circle')
+            .attr('cx', positions[node.id].x)
+            .attr('cy', positions[node.id].y)
+            .attr('r', node.level === 0 ? 50 : node.level === 1 ? 32 : 26)
+            .attr('fill', node.color)
+            .attr('stroke', '#222')
+            .attr('stroke-width', 3)
+            .attr('filter', node.level === 0 ? 'url(#glow)' : null);
+        // Imagen de la base de datos
+        svg.append('image')
+            .attr('x', positions[node.id].x - (node.level === 0 ? 32 : node.level === 1 ? 20 : 16))
+            .attr('y', positions[node.id].y - (node.level === 0 ? 32 : node.level === 1 ? 20 : 16))
+            .attr('width', node.level === 0 ? 64 : node.level === 1 ? 40 : 32)
+            .attr('height', node.level === 0 ? 64 : node.level === 1 ? 40 : 32)
+            .attr('href', 'assets/matrizbase.png');
+        // Etiqueta
+        let label = node.id + '\n' + node.ip;
+        svg.append('text')
+            .attr('x', positions[node.id].x)
+            .attr('y', positions[node.id].y + (node.level === 0 ? 70 : node.level === 1 ? 50 : 38))
+            .attr('class', 'node-label')
+            .text(label);
+    });
+    // Definir filtro de glow para nodos principales
+    svg.append('defs').append('filter')
+        .attr('id', 'glow')
+        .html('<feGaussianBlur stdDeviation="8" result="coloredBlur"/><feMerge><feMergeNode in="coloredBlur"/><feMergeNode in="SourceGraphic"/></feMerge>');
+    // Animación de paquetes (círculos pequeños que se mueven por las líneas)
+    let animacionInfinitaActiva = true;
+    let animacionInfinitaPackets = [];
+    function animatePacket(from, to, duration = 2000, color = '#ffeb3b', once = false, callback = null, isDefault = false) {
+        if (isDefault && !animacionInfinitaActiva) return;
+        const packet = svg.append('circle')
+            .attr('r', 12)
+            .attr('fill', color)
+            .attr('opacity', 0.8)
+            .attr('filter', 'url(#glow)');
+        if (isDefault) animacionInfinitaPackets.push(packet);
+        packet
+            .attr('cx', from.x)
+            .attr('cy', from.y)
+            .transition()
+            .duration(duration)
+            .attr('cx', to.x)
+            .attr('cy', to.y)
+            .attr('opacity', 0.2)
+            .transition()
+            .duration(200)
+            .attr('opacity', 0)
+            .on('end', function() {
+                packet.remove();
+                if (isDefault && animacionInfinitaActiva) {
+                    animatePacket(from, to, duration, color, false, null, true);
+                }
+                if (callback) callback();
+            });
+    }
+
+
+    // Animación infinita por defecto
+    function startContinuousAnimation() {
+        animacionInfinitaActiva = true;
+        links.forEach(link => {
+            const from = positions[link.source];
+            const to = positions[link.target];
+            // Ajustar duración según nivel
+            let duration = 1800;
+            if (from.y < to.y) {
+                duration = 2200; // conexiones verticales más largas
+            }
+            animatePacket(from, to, duration, undefined, false, null, true);
+            if (link.bidirectional) {
+                animatePacket(to, from, duration, undefined, false, null, true);
+            }
+        });
+    }
+    function stopContinuousAnimation() {
+        animacionInfinitaActiva = false;
+        // Eliminar todos los paquetes animados actuales
+        animacionInfinitaPackets.forEach(p => p.remove());
+        animacionInfinitaPackets = [];
+    }
+    startContinuousAnimation();
+
+    // --- Simulación de ruta base local ---
+    document.getElementById('btn-simular-base-local').onclick = function() {
+        // Pausar animación infinita
+        stopContinuousAnimation();
+        // Desactivar botón mientras corre la animación
+        this.disabled = true;
+        this.style.opacity = 0.6;
+        // Ruta: MTX001 -> REP001 -> todas bases locales -> cada base local a su tienda
+        const ruta = [];
+        // MTX001 -> REP001
+        ruta.push(['MTX001', 'REP001']);
+        // REP001 -> todas bases locales nivel 2
+        const basesLocales = ['MM001','GQ001','QT101','CU101','AM101','MM002'];
+        basesLocales.forEach(b => ruta.push(['REP001', b]));
+        // Cada base local -> su tienda
+        const tiendas = ['TMM001','TGQ001','TQT101','TCU101','TAM101','TMM002'];
+        basesLocales.forEach((b, i) => ruta.push([b, tiendas[i]]));
+
+        // Animar la ruta secuencialmente
+        let i = 0;
+        function next() {
+            if (i >= ruta.length) {
+                document.getElementById('btn-simular-base-local').disabled = false;
+                document.getElementById('btn-simular-base-local').style.opacity = 1;
+                // Al terminar, reanudar animación infinita
+                setTimeout(startContinuousAnimation, 400);
+                return;
+            }
+            const [fromId, toId] = ruta[i];
+            animatePacket(positions[fromId], positions[toId], 900, '#ff6b6b', true, () => {
+                setTimeout(next, 200);
+            });
+            i++;
+        }
+        next();
+    };
+    </script>
+</body>
+</html>
